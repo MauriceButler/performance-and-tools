@@ -67,7 +67,52 @@
 					<p>
 						Don't use express
 					</p>
+				</section>
 
+				<section>
+					<h2>Flame Charts</h2>
+					<p>
+						<img src="/images/cpu-mysql-filt.svg">
+					</p>
+				</section>
+
+				<section>
+					<p>
+						<img src="/images/brendan_gregg.jpeg" style="float:left;">
+						Brendan D. Gregg (<a href="https://twitter.com/brendangregg">@brendangregg</a>) is a legend at this stuff
+					</p>
+					<br>
+					<p>
+						All you need to know about Flame Charts is here <a href="http://www.brendangregg.com/flamegraphs.html">brendangregg.com/flamegraphs</a>
+					</p>
+				</section>
+
+				<section>
+					<h3>Flame graphs are a visualization of profiled software.</h3>
+					<img src="/images/small_chart.jpg" style="position: absolute; right: 0; top: 50%; width: 30%;">
+					<ul>
+						<li class="fragment" >The x-axis is sorted alphabetically (not the passage of time)</li>
+						<li class="fragment" >The y-axis shows stack depth</li>
+						<li class="fragment" >Each box represents a stack frame</li>
+						<li class="fragment" >The top edge shows what is on-CPU</li>
+						<li class="fragment" >Below is its ancestry</li>
+						<li class="fragment" >The colors are random...</li>
+					</ul>
+
+				</section>
+
+				<section>
+					<h3>Prerequisits to generate  flame charts</h3>
+
+					<ol>
+						<li class="fragment" >Use linux ( mac is hard, windows impossibru... )</li>
+						<li class="fragment" >Use node v0.11.13+ ( for symbols )</li>
+						<li class="fragment" >Clone the FlameGraph repo (<a href="https://github.com/brendangregg/FlameGraph">github.com/brendangregg/FlameGraph</a>)</li>
+					</ol>
+				</section>
+
+				<section>
+					<h2>DEMO</h2>
 				</section>
 
 				<section>

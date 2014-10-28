@@ -1,0 +1,581 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="626" onload="init(evt)" viewBox="0 0 1200 626" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs >
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	.func_g:hover { stroke:black; stroke-width:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	var details, svg;
+	function init(evt) { 
+		details = document.getElementById("details").firstChild; 
+		svg = document.getElementsByTagName("svg")[0];
+	}
+	function s(info) { details.nodeValue = "Function: " + info; }
+	function c() { details.nodeValue = ' '; }
+	function find_child(parent, name, attr) {
+		var children = parent.childNodes;
+		for (var i=0; i<children.length;i++) {
+			if (children[i].tagName == name)
+				return (attr != undefined) ? children[i].attributes[attr].value : children[i];
+		}
+		return;
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_"+attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_"+attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_"+attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes["width"].value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)/,"");
+		t.attributes["x"].value = parseFloat(r.attributes["x"].value) +3;
+		
+		// Smaller than this size won't fit anything
+		if (w < 2*12*0.59) {
+			t.textContent = "";
+			return;
+		}
+		
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+		
+		for (var x=txt.length-2; x>0; x--) {
+			if (t.getSubStringLength(0, x+2) <= w) { 
+				t.textContent = txt.substring(0,x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = (parseFloat(e.attributes["x"].value) - x - 10) * ratio + 10;
+				if(e.tagName == "text") e.attributes["x"].value = find_child(e.parentNode, "rect", "x") + 3;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseFloat(e.attributes["width"].value) * ratio;
+			}
+		}
+		
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_child(c[i], x-10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = 10;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseInt(svg.width.baseVal.value) - (10*2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) { 
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr["width"].value);
+		var xmin = parseFloat(attr["x"].value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr["y"].value);
+		var ratio = (svg.width.baseVal.value - 2*10) / width;
+		
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "1.0";
+		
+		var el = document.getElementsByTagName("g");
+		for(var i=0;i<el.length;i++){
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a["x"].value);
+			var ew = parseFloat(a["width"].value);
+			// Is it an ancestor
+			if (parseFloat(a["y"].value) > ymin) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew) >= xmax) {
+					e.style["opacity"] = "0.5";
+					zoom_parent(e);
+					e.onclick = function(e){unzoom(); zoom(this);};
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.style["display"] = "none";
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex >= xmax) {
+					e.style["display"] = "none";
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					e.onclick = function(e){zoom(this);};
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "0.0";
+		
+		var el = document.getElementsByTagName("g");
+		for(i=0;i<el.length;i++) {
+			el[i].style["display"] = "block";
+			el[i].style["opacity"] = "1";
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}	
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="626.0" fill="url(#background)"  />
+<text text-anchor="middle" x="600" y="24" font-size="17" font-family="Verdana" fill="rgb(0,0,0)"  >Flame Graph</text>
+<text text-anchor="" x="10" y="609" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="details" > </text>
+<text text-anchor="" x="10" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="unzoom" onclick="unzoom()" style="opacity:0.0" >Reset Zoom</text>
+<g class="func_g" onmouseover="s('node::Parser::Execute(v8::Arguments const&amp;) (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::Parser::Execute(v8::Arguments const&amp;) (285 samples, 78.95%)</title><rect x="32.9" y="257" width="931.6" height="15.0" fill="rgb(237,97,19)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >node::Parser::Execute(v8::Arguments const&amp;)</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (64 samples, 17.73%)</title><rect x="964.5" y="177" width="209.2" height="15.0" fill="rgb(248,207,45)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (6 samples, 1.66%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (6 samples, 1.66%)</title><rect x="10.0" y="529" width="19.6" height="15.0" fill="rgb(231,66,53)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="539.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (350 samples, 96.95%)</title><rect x="29.6" y="337" width="1144.1" height="15.0" fill="rgb(211,201,18)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (350 samples, 96.95%)</title><rect x="29.6" y="353" width="1144.1" height="15.0" fill="rgb(229,75,20)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('v8::Function::Call(v8::Handle(v8::Object), int, v8::Handle(v8::Value)*) (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::Function::Call(v8::Handle(v8::Object), int, v8::Handle(v8::Value)*) (64 samples, 17.73%)</title><rect x="964.5" y="225" width="209.2" height="15.0" fill="rgb(237,79,48)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >v8::Function::Call(v8::Hand..</text>
+</g>
+<g class="func_g" onmouseover="s('node::Start(int, char**) (355 samples, 98.34%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::Start(int, char**) (355 samples, 98.34%)</title><rect x="29.6" y="529" width="1160.4" height="15.0" fill="rgb(245,226,30)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="539.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >node::Start(int, char**)</text>
+</g>
+<g class="func_g" onmouseover="s('futex_wait_queue_me (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>futex_wait_queue_me (4 samples, 1.11%)</title><rect x="13.3" y="401" width="13.0" height="15.0" fill="rgb(209,93,42)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('__perf_event_task_sched_in (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>__perf_event_task_sched_in (4 samples, 1.11%)</title><rect x="1173.7" y="337" width="13.0" height="15.0" fill="rgb(226,51,0)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (64 samples, 17.73%)</title><rect x="964.5" y="113" width="209.2" height="15.0" fill="rgb(206,149,18)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (64 samples, 17.73%)</title><rect x="964.5" y="193" width="209.2" height="15.0" fill="rgb(241,95,51)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('uv_run (355 samples, 98.34%)')" onmouseout="c()" onclick="zoom(this)">
+<title>uv_run (355 samples, 98.34%)</title><rect x="29.6" y="513" width="1160.4" height="15.0" fill="rgb(249,35,40)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="523.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >uv_run</text>
+</g>
+<g class="func_g" onmouseover="s('__GI___libc_nanosleep (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>__GI___libc_nanosleep (1 samples, 0.28%)</title><rect x="10.0" y="513" width="3.3" height="15.0" fill="rgb(214,47,40)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="523.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('hrtimer_nanosleep (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>hrtimer_nanosleep (1 samples, 0.28%)</title><rect x="10.0" y="465" width="3.3" height="15.0" fill="rgb(240,124,5)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('schedule (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (4 samples, 1.11%)</title><rect x="1173.7" y="385" width="13.0" height="15.0" fill="rgb(238,199,7)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('schedule_hrtimeout_range (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_hrtimeout_range (4 samples, 1.11%)</title><rect x="1173.7" y="417" width="13.0" height="15.0" fill="rgb(213,151,41)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('futex_wait (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>futex_wait (4 samples, 1.11%)</title><rect x="13.3" y="417" width="13.0" height="15.0" fill="rgb(239,139,3)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (285 samples, 78.95%)</title><rect x="32.9" y="65" width="931.6" height="15.0" fill="rgb(211,181,30)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('x86_pmu_enable (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>x86_pmu_enable (4 samples, 1.11%)</title><rect x="13.3" y="289" width="13.0" height="15.0" fill="rgb(206,198,38)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::Function::NewInstance(int, v8::Handle(v8::Value)*) const (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::Function::NewInstance(int, v8::Handle(v8::Value)*) const (1 samples, 0.28%)</title><rect x="1186.7" y="417" width="3.3" height="15.0" fill="rgb(251,146,21)" rx="2" ry="2" />
+<text text-anchor="" x="1189.73130193906" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::SamplerRegistry::GetState() (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::SamplerRegistry::GetState() (1 samples, 0.28%)</title><rect x="26.3" y="497" width="3.3" height="15.0" fill="rgb(248,30,38)" rx="2" ry="2" />
+<text text-anchor="" x="29.3434903047091" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::Function::NewInstance() const (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::Function::NewInstance() const (1 samples, 0.28%)</title><rect x="1186.7" y="433" width="3.3" height="15.0" fill="rgb(231,95,33)" rx="2" ry="2" />
+<text text-anchor="" x="1189.73130193906" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('finish_task_switch (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (4 samples, 1.11%)</title><rect x="1173.7" y="353" width="13.0" height="15.0" fill="rgb(217,87,45)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('node::MakeCallback(v8::Handle(v8::Object), v8::Handle(v8::String), int, v8::Handle(v8::Value)*) (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::MakeCallback(v8::Handle(v8::Object), v8::Handle(v8::String), int, v8::Handle(v8::Value)*) (350 samples, 96.95%)</title><rect x="29.6" y="433" width="1144.1" height="15.0" fill="rgb(250,58,48)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >node::MakeCallback(v8::Handle(v8::Object), v8::Handle(v8::String), int, v8::Handle(v8::Value)*)</text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::modulo(double, double) (5 samples, 1.39%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::modulo(double, double) (5 samples, 1.39%)</title><rect x="948.1" y="49" width="16.4" height="15.0" fill="rgb(242,149,30)" rx="2" ry="2" />
+<text text-anchor="" x="951.116343490305" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('node::StreamWrap::OnReadCommon(uv_stream_s*, long, uv_buf_t, uv_handle_type) (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::StreamWrap::OnReadCommon(uv_stream_s*, long, uv_buf_t, uv_handle_type) (350 samples, 96.95%)</title><rect x="29.6" y="449" width="1144.1" height="15.0" fill="rgb(234,16,25)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >node::StreamWrap::OnReadCommon(uv_stream_s*, long, uv_buf_t, uv_handle_type)</text>
+</g>
+<g class="func_g" onmouseover="s('node::MakeCallback(v8::Handle(v8::Object), v8::Handle(v8::Function), int, v8::Handle(v8::Value)*) (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::MakeCallback(v8::Handle(v8::Object), v8::Handle(v8::Function), int, v8::Handle(v8::Value)*) (350 samples, 96.95%)</title><rect x="29.6" y="417" width="1144.1" height="15.0" fill="rgb(254,215,25)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="427.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >node::MakeCallback(v8::Handle(v8::Object), v8::Handle(v8::Function), int, v8::Handle(v8::Value)*)</text>
+</g>
+<g class="func_g" onmouseover="s('uv__server_io (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>uv__server_io (1 samples, 0.28%)</title><rect x="1186.7" y="481" width="3.3" height="15.0" fill="rgb(232,102,43)" rx="2" ry="2" />
+<text text-anchor="" x="1189.73130193906" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('do_futex (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>do_futex (4 samples, 1.11%)</title><rect x="13.3" y="433" width="13.0" height="15.0" fill="rgb(234,39,50)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (6 samples, 1.66%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (6 samples, 1.66%)</title><rect x="307.5" y="33" width="19.6" height="15.0" fill="rgb(252,46,3)" rx="2" ry="2" />
+<text text-anchor="" x="310.451523545706" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('system_call_fastpath (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>system_call_fastpath (1 samples, 0.28%)</title><rect x="10.0" y="497" width="3.3" height="15.0" fill="rgb(244,221,41)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::SamplerRegistry::IterateActiveSamplers(void (*)(v8::internal::Sampler*, void*), void*) (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::SamplerRegistry::IterateActiveSamplers(void (*)(v8::internal::Sampler*, void*), void*) (1 samples, 0.28%)</title><rect x="26.3" y="481" width="3.3" height="15.0" fill="rgb(247,19,44)" rx="2" ry="2" />
+<text text-anchor="" x="29.3434903047091" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('http_parser_execute (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>http_parser_execute (64 samples, 17.73%)</title><rect x="964.5" y="257" width="209.2" height="15.0" fill="rgb(253,179,12)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >http_parser_execute</text>
+</g>
+<g class="func_g" onmouseover="s('v8::Function::Call(v8::Handle(v8::Object), int, v8::Handle(v8::Value)*) (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::Function::Call(v8::Handle(v8::Object), int, v8::Handle(v8::Value)*) (285 samples, 78.95%)</title><rect x="32.9" y="209" width="931.6" height="15.0" fill="rgb(254,160,1)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >v8::Function::Call(v8::Handle(v8::Object), int, v8::Handle(v8::Value)*)</text>
+</g>
+<g class="func_g" onmouseover="s('system_call_fastpath (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>system_call_fastpath (4 samples, 1.11%)</title><rect x="13.3" y="465" width="13.0" height="15.0" fill="rgb(228,134,34)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('intel_pmu_enable_all (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>intel_pmu_enable_all (4 samples, 1.11%)</title><rect x="13.3" y="273" width="13.0" height="15.0" fill="rgb(214,36,21)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (350 samples, 96.95%)</title><rect x="29.6" y="321" width="1144.1" height="15.0" fill="rgb(248,49,25)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('intel_pmu_enable_all (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>intel_pmu_enable_all (4 samples, 1.11%)</title><rect x="1173.7" y="273" width="13.0" height="15.0" fill="rgb(234,214,36)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('schedule (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>schedule (4 samples, 1.11%)</title><rect x="13.3" y="385" width="13.0" height="15.0" fill="rgb(217,8,2)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (285 samples, 78.95%)</title><rect x="32.9" y="81" width="931.6" height="15.0" fill="rgb(234,46,1)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('node::Parser::on_headers_complete(http_parser*) (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::Parser::on_headers_complete(http_parser*) (285 samples, 78.95%)</title><rect x="32.9" y="225" width="931.6" height="15.0" fill="rgb(230,107,10)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="235.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >node::Parser::on_headers_complete(http_parser*)</text>
+</g>
+<g class="func_g" onmouseover="s('v8::Function::Call(v8::Handle(v8::Object), int, v8::Handle(v8::Value)*) (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::Function::Call(v8::Handle(v8::Object), int, v8::Handle(v8::Value)*) (350 samples, 96.95%)</title><rect x="29.6" y="401" width="1144.1" height="15.0" fill="rgb(236,11,49)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >v8::Function::Call(v8::Handle(v8::Object), int, v8::Handle(v8::Value)*)</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (64 samples, 17.73%)</title><rect x="964.5" y="97" width="209.2" height="15.0" fill="rgb(216,25,13)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('__libc_start_main (355 samples, 98.34%)')" onmouseout="c()" onclick="zoom(this)">
+<title>__libc_start_main (355 samples, 98.34%)</title><rect x="29.6" y="545" width="1160.4" height="15.0" fill="rgb(210,172,3)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="555.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__libc_start_main</text>
+</g>
+<g class="func_g" onmouseover="s('node::TCPWrap::Instantiate() (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::TCPWrap::Instantiate() (1 samples, 0.28%)</title><rect x="1186.7" y="449" width="3.3" height="15.0" fill="rgb(205,181,38)" rx="2" ry="2" />
+<text text-anchor="" x="1189.73130193906" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (285 samples, 78.95%)</title><rect x="32.9" y="129" width="931.6" height="15.0" fill="rgb(243,182,8)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('finish_task_switch (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>finish_task_switch (4 samples, 1.11%)</title><rect x="13.3" y="353" width="13.0" height="15.0" fill="rgb(238,192,24)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="363.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('uv__io_poll (355 samples, 98.34%)')" onmouseout="c()" onclick="zoom(this)">
+<title>uv__io_poll (355 samples, 98.34%)</title><rect x="29.6" y="497" width="1160.4" height="15.0" fill="rgb(250,12,17)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >uv__io_poll</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (350 samples, 96.95%)</title><rect x="29.6" y="481" width="1144.1" height="15.0" fill="rgb(216,141,48)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('schedule_hrtimeout_range_clock (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>schedule_hrtimeout_range_clock (4 samples, 1.11%)</title><rect x="1173.7" y="401" width="13.0" height="15.0" fill="rgb(249,212,14)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::modulo(double, double) (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::modulo(double, double) (1 samples, 0.28%)</title><rect x="1170.4" y="65" width="3.3" height="15.0" fill="rgb(211,145,40)" rx="2" ry="2" />
+<text text-anchor="" x="1173.38781163435" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::SignalSender::Run() (5 samples, 1.39%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::SignalSender::Run() (5 samples, 1.39%)</title><rect x="13.3" y="513" width="16.3" height="15.0" fill="rgb(208,132,35)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="523.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('node::Parser::Execute(v8::Arguments const&amp;) (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::Parser::Execute(v8::Arguments const&amp;) (64 samples, 17.73%)</title><rect x="964.5" y="273" width="209.2" height="15.0" fill="rgb(207,23,7)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >node::Parser::Execute(v8::A..</text>
+</g>
+<g class="func_g" onmouseover="s('ep_poll (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>ep_poll (4 samples, 1.11%)</title><rect x="1173.7" y="433" width="13.0" height="15.0" fill="rgb(229,22,11)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('http_parser_execute (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>http_parser_execute (285 samples, 78.95%)</title><rect x="32.9" y="241" width="931.6" height="15.0" fill="rgb(211,211,19)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >http_parser_execute</text>
+</g>
+<g class="func_g" onmouseover="s('perf_pmu_enable (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>perf_pmu_enable (4 samples, 1.11%)</title><rect x="13.3" y="305" width="13.0" height="15.0" fill="rgb(244,130,52)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('__schedule (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>__schedule (4 samples, 1.11%)</title><rect x="13.3" y="369" width="13.0" height="15.0" fill="rgb(207,54,18)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('node::TCPWrap::OnConnection(uv_stream_s*, int) (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::TCPWrap::OnConnection(uv_stream_s*, int) (1 samples, 0.28%)</title><rect x="1186.7" y="465" width="3.3" height="15.0" fill="rgb(222,9,34)" rx="2" ry="2" />
+<text text-anchor="" x="1189.73130193906" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('node (355 samples, 98.34%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node (355 samples, 98.34%)</title><rect x="29.6" y="561" width="1160.4" height="15.0" fill="rgb(239,119,41)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="571.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >node</text>
+</g>
+<g class="func_g" onmouseover="s('sys_epoll_wait (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>sys_epoll_wait (4 samples, 1.11%)</title><rect x="1173.7" y="449" width="13.0" height="15.0" fill="rgb(205,212,42)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::Execution::New(v8::internal::Handle(v8::internal::JSFunction), int, v8::internal::Handle(v8::internal::Object)*, bool*) (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::Execution::New(v8::internal::Handle(v8::internal::JSFunction), int, v8::internal::Handle(v8::internal::Object)*, bool*) (1 samples, 0.28%)</title><rect x="1186.7" y="401" width="3.3" height="15.0" fill="rgb(244,225,30)" rx="2" ry="2" />
+<text text-anchor="" x="1189.73130193906" y="411.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (285 samples, 78.95%)</title><rect x="32.9" y="273" width="931.6" height="15.0" fill="rgb(230,94,30)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="283.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::Execution::Call(v8::internal::Handle(v8::internal::Object), v8::internal::Handle(v8::internal::Object), int, v8::internal::Handle(v8::internal::Object)*, bool*, bool) (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::Execution::Call(v8::internal::Handle(v8::internal::Object), v8::internal::Handle(v8::internal::Object), int, v8::internal::Handle(v8::internal::Object)*, bool*, bool) (64 samples, 17.73%)</title><rect x="964.5" y="209" width="209.2" height="15.0" fill="rgb(206,216,30)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="219.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >v8::internal::Execution::Ca..</text>
+</g>
+<g class="func_g" onmouseover="s('native_write_msr_safe (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>native_write_msr_safe (4 samples, 1.11%)</title><rect x="1173.7" y="257" width="13.0" height="15.0" fill="rgb(217,30,6)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('system_call_fastpath (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>system_call_fastpath (4 samples, 1.11%)</title><rect x="1173.7" y="465" width="13.0" height="15.0" fill="rgb(249,207,40)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('node::Parser::on_headers_complete(http_parser*) (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>node::Parser::on_headers_complete(http_parser*) (64 samples, 17.73%)</title><rect x="964.5" y="241" width="209.2" height="15.0" fill="rgb(228,146,7)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="251.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >node::Parser::on_headers_co..</text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::RuntimeProfiler::WaitForSomeIsolateToEnterJS() (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::RuntimeProfiler::WaitForSomeIsolateToEnterJS() (4 samples, 1.11%)</title><rect x="13.3" y="497" width="13.0" height="15.0" fill="rgb(254,94,47)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="507.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::modulo(double, double) (48 samples, 13.30%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::modulo(double, double) (48 samples, 13.30%)</title><rect x="1013.5" y="49" width="156.9" height="15.0" fill="rgb(223,167,35)" rx="2" ry="2" />
+<text text-anchor="" x="1016.49030470914" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >v8::internal::modulo..</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (64 samples, 17.73%)</title><rect x="964.5" y="81" width="209.2" height="15.0" fill="rgb(243,111,34)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="91.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (350 samples, 96.95%)</title><rect x="29.6" y="465" width="1144.1" height="15.0" fill="rgb(206,77,3)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="475.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (64 samples, 17.73%)</title><rect x="964.5" y="145" width="209.2" height="15.0" fill="rgb(206,113,18)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (349 samples, 96.68%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (349 samples, 96.68%)</title><rect x="32.9" y="289" width="1140.8" height="15.0" fill="rgb(235,214,9)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (285 samples, 78.95%)</title><rect x="32.9" y="161" width="931.6" height="15.0" fill="rgb(220,95,51)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (285 samples, 78.95%)</title><rect x="32.9" y="177" width="931.6" height="15.0" fill="rgb(232,149,0)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="187.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('sys_futex (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>sys_futex (4 samples, 1.11%)</title><rect x="13.3" y="449" width="13.0" height="15.0" fill="rgb(226,72,0)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('native_write_msr_safe (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>native_write_msr_safe (4 samples, 1.11%)</title><rect x="13.3" y="257" width="13.0" height="15.0" fill="rgb(217,31,6)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="267.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (285 samples, 78.95%)</title><rect x="32.9" y="113" width="931.6" height="15.0" fill="rgb(250,31,42)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="123.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('sem_wait (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>sem_wait (4 samples, 1.11%)</title><rect x="13.3" y="481" width="13.0" height="15.0" fill="rgb(224,43,15)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('perf_event_context_sched_in (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>perf_event_context_sched_in (4 samples, 1.11%)</title><rect x="13.3" y="321" width="13.0" height="15.0" fill="rgb(246,121,49)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('syscall (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>syscall (4 samples, 1.11%)</title><rect x="1173.7" y="481" width="13.0" height="15.0" fill="rgb(246,210,53)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (349 samples, 96.68%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (349 samples, 96.68%)</title><rect x="32.9" y="305" width="1140.8" height="15.0" fill="rgb(246,85,34)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('sys_nanosleep (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>sys_nanosleep (1 samples, 0.28%)</title><rect x="10.0" y="481" width="3.3" height="15.0" fill="rgb(251,88,24)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="491.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('idle_cpu (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>idle_cpu (1 samples, 0.28%)</title><rect x="10.0" y="433" width="3.3" height="15.0" fill="rgb(216,130,19)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="443.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::Execution::Call(v8::internal::Handle(v8::internal::Object), v8::internal::Handle(v8::internal::Object), int, v8::internal::Handle(v8::internal::Object)*, bool*, bool) (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::Execution::Call(v8::internal::Handle(v8::internal::Object), v8::internal::Handle(v8::internal::Object), int, v8::internal::Handle(v8::internal::Object)*, bool*, bool) (350 samples, 96.95%)</title><rect x="29.6" y="385" width="1144.1" height="15.0" fill="rgb(245,103,27)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="395.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >v8::internal::Execution::Call(v8::internal::Handle(v8::internal::Object), v8::internal::Handle(v8::internal::Object), int, v8::internal::Handle(v8::internal::O..</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (280 samples, 77.56%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (280 samples, 77.56%)</title><rect x="32.9" y="49" width="915.2" height="15.0" fill="rgb(220,60,13)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="59.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('start_thread (6 samples, 1.66%)')" onmouseout="c()" onclick="zoom(this)">
+<title>start_thread (6 samples, 1.66%)</title><rect x="10.0" y="545" width="19.6" height="15.0" fill="rgb(252,212,30)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="555.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (64 samples, 17.73%)</title><rect x="964.5" y="129" width="209.2" height="15.0" fill="rgb(237,6,47)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="139.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (285 samples, 78.95%)</title><rect x="32.9" y="97" width="931.6" height="15.0" fill="rgb(234,205,18)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="107.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('SignalSender (6 samples, 1.66%)')" onmouseout="c()" onclick="zoom(this)">
+<title>SignalSender (6 samples, 1.66%)</title><rect x="10.0" y="561" width="19.6" height="15.0" fill="rgb(252,183,6)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="571.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (64 samples, 17.73%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (64 samples, 17.73%)</title><rect x="964.5" y="161" width="209.2" height="15.0" fill="rgb(235,89,48)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="171.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('do_nanosleep (1 samples, 0.28%)')" onmouseout="c()" onclick="zoom(this)">
+<title>do_nanosleep (1 samples, 0.28%)</title><rect x="10.0" y="449" width="3.3" height="15.0" fill="rgb(237,57,36)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="459.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('__perf_event_task_sched_in (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>__perf_event_task_sched_in (4 samples, 1.11%)</title><rect x="13.3" y="337" width="13.0" height="15.0" fill="rgb(240,144,8)" rx="2" ry="2" />
+<text text-anchor="" x="16.2686980609418" y="347.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('perf_event_context_sched_in (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>perf_event_context_sched_in (4 samples, 1.11%)</title><rect x="1173.7" y="321" width="13.0" height="15.0" fill="rgb(225,130,2)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="331.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('x86_pmu_enable (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>x86_pmu_enable (4 samples, 1.11%)</title><rect x="1173.7" y="289" width="13.0" height="15.0" fill="rgb(241,130,39)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="299.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('__schedule (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>__schedule (4 samples, 1.11%)</title><rect x="1173.7" y="369" width="13.0" height="15.0" fill="rgb(213,84,30)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('perf_pmu_enable (4 samples, 1.11%)')" onmouseout="c()" onclick="zoom(this)">
+<title>perf_pmu_enable (4 samples, 1.11%)</title><rect x="1173.7" y="305" width="13.0" height="15.0" fill="rgb(247,163,12)" rx="2" ry="2" />
+<text text-anchor="" x="1176.65650969529" y="315.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('all (361 samples, 100%)')" onmouseout="c()" onclick="zoom(this)">
+<title>all (361 samples, 100%)</title><rect x="10.0" y="577" width="1180.0" height="15.0" fill="rgb(206,161,37)" rx="2" ry="2" />
+<text text-anchor="" x="13" y="587.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::modulo(double, double) (190 samples, 52.63%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::modulo(double, double) (190 samples, 52.63%)</title><rect x="327.1" y="33" width="621.0" height="15.0" fill="rgb(225,174,38)" rx="2" ry="2" />
+<text text-anchor="" x="330.063711911357" y="43.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >v8::internal::modulo(double, double)</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (350 samples, 96.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (350 samples, 96.95%)</title><rect x="29.6" y="369" width="1144.1" height="15.0" fill="rgb(207,214,43)" rx="2" ry="2" />
+<text text-anchor="" x="32.612188365651" y="379.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('v8::internal::Execution::Call(v8::internal::Handle(v8::internal::Object), v8::internal::Handle(v8::internal::Object), int, v8::internal::Handle(v8::internal::Object)*, bool*, bool) (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>v8::internal::Execution::Call(v8::internal::Handle(v8::internal::Object), v8::internal::Handle(v8::internal::Object), int, v8::internal::Handle(v8::internal::Object)*, bool*, bool) (285 samples, 78.95%)</title><rect x="32.9" y="193" width="931.6" height="15.0" fill="rgb(213,46,29)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="203.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >v8::internal::Execution::Call(v8::internal::Handle(v8::internal::Object), v8::internal::Handle(v8::internal::Object), int, v8::in..</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (63 samples, 17.45%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (63 samples, 17.45%)</title><rect x="964.5" y="65" width="205.9" height="15.0" fill="rgb(222,15,32)" rx="2" ry="2" />
+<text text-anchor="" x="967.459833795014" y="75.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+<g class="func_g" onmouseover="s('[unknown] (285 samples, 78.95%)')" onmouseout="c()" onclick="zoom(this)">
+<title>[unknown] (285 samples, 78.95%)</title><rect x="32.9" y="145" width="931.6" height="15.0" fill="rgb(229,183,3)" rx="2" ry="2" />
+<text text-anchor="" x="35.8808864265928" y="155.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >[unknown]</text>
+</g>
+</svg>
