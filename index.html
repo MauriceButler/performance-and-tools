@@ -70,6 +70,117 @@
 				</section>
 
 				<section>
+					<h1>Do less</h1>
+				</section>
+
+				<section>
+
+					<section>
+						<h2>Don’t iterate so much</h2>
+
+						<pre><code data-trim contenteditable>
+for(var key in obj){
+	if(!obj.hasOwnProperty(key)){
+		continue;
+	}
+
+	// Do something.
+}
+						</code></pre>
+					</section>
+
+					<section>
+						<pre><code data-trim contenteditable>
+var keys = Object.keys(obj);
+for(var i = 0; i < keys.length; i++){
+	// Object.keys only returns own properties.
+	// Do something.
+}
+						</code></pre>
+					</section>
+				</section>
+
+
+				<section>
+
+					<section>
+						<h2>Memoiseation</h2>
+
+						<pre><code data-trim contenteditable>
+function isPrime(n) {
+	if (isNaN(n) || !isFinite(n) || n%1 || n<2) return false;
+	var m=Math.sqrt(n);
+	for (var i=2;i<=m;i++) if (n%i==0) return false;
+	return true;
+}
+						</code></pre>
+					</section>
+
+					<section>
+						<pre><code data-trim contenteditable>
+var cache = {};
+function isPrimeMemoised(n) {
+	if(n in cache){
+		return cache[n];
+	}
+	if (isNaN(n) || !isFinite(n) || n%1 || n<2) return cache[n] = false;
+	var m=Math.sqrt(n);
+	for (var i=2;i<=m;i++) if (n%i==0) return cache[n] = false;
+	return cache[n] = true;
+}
+						</code></pre>
+					</section>
+
+					<section>
+						<h2>Results</h2>
+
+						~100% faster for the same number.
+						</br>
+						<a href="http://jsperf.com/primes-memoisation">jsperf.com/primes-memoisation</a>
+					</section>
+
+					<section>
+						<h3>Good for</h3>
+
+						Repeated, deterministic, hard calculations.
+
+						<h3>Bad for</h3>
+
+						easy calculations.
+
+						<h3>Impossible for</h3>
+
+						non-deterministic code.
+					</section>
+				</section>
+
+				<section>
+
+					<section>
+						<h2>Reuse objects</h2>
+
+						<pre><code data-trim contenteditable>
+
+function onMouseMove(event){
+	$('.someUniqueElement').left(event.pageY);
+	$('.someUniqueElement').top(event.pageY);
+}
+						</code></pre>
+					</section>
+
+					<section>
+						<pre><code data-trim contenteditable>
+var someUniqueElement = $('.someUniqueElement');
+
+function onMouseMove(event){
+	someUniqueElement.left(event.pageY);
+	someUniqueElement.top(event.pageY);
+}
+						</code></pre>
+					</section>
+				</section>
+
+				<section>
 					<h2>Flame Charts</h2>
 					<p>
 						<img src="/images/cpu-mysql-filt.svg">
