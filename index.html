@@ -70,6 +70,18 @@
 				</section>
 
 				<section>
+					<h1>THE END</h1>
+					<br>
+					<p>
+						<small>Maurice Butler (<a href="http://twitter.com/butlermaurice">@butlermaurice</a>)</small>
+					<p>
+					</p>
+						<small>Kory Nunn (<a href="http://twitter.com/korynunn">@korynunn</a>)</small>
+					</p>
+
+				</section>
+
+				<section>
 					<h1>Do less</h1>
 				</section>
 
@@ -80,11 +92,11 @@
 
 						<pre><code data-trim contenteditable>
 for(var key in obj){
-	if(!obj.hasOwnProperty(key)){
-		continue;
-	}
+    if(!obj.hasOwnProperty(key)){
+        continue;
+    }
 
-	// Do something.
+    // Do something.
 }
 						</code></pre>
 					</section>
@@ -92,9 +104,10 @@ for(var key in obj){
 					<section>
 						<pre><code data-trim contenteditable>
 var keys = Object.keys(obj);
+
 for(var i = 0; i < keys.length; i++){
-	// Object.keys only returns own properties.
-	// Do something.
+    // Object.keys only returns own properties.
+    // Do something.
 }
 						</code></pre>
 					</section>
@@ -108,25 +121,43 @@ for(var i = 0; i < keys.length; i++){
 
 						<pre><code data-trim contenteditable>
 function isPrime(n) {
-	if (isNaN(n) || !isFinite(n) || n%1 || n<2) return false;
-	var m=Math.sqrt(n);
-	for (var i=2;i<=m;i++) if (n%i==0) return false;
-	return true;
+    if (isNaN(n) || !isFinite(n) || n % 1 || n < 2) {
+        return false;
+    }
+
+    var m = Math.sqrt(n);
+
+    for (var i = 2; i <= m; i++) {
+        if (n % i === 0) {
+            return false;
+        }
+    }
+
+    return true;
 }
 						</code></pre>
 					</section>
 
 					<section>
-						<pre><code data-trim contenteditable>
+						<pre><code style="height=80%;" data-trim contenteditable>
 var cache = {};
 function isPrimeMemoised(n) {
-	if(n in cache){
-		return cache[n];
-	}
-	if (isNaN(n) || !isFinite(n) || n%1 || n<2) return cache[n] = false;
-	var m=Math.sqrt(n);
-	for (var i=2;i<=m;i++) if (n%i==0) return cache[n] = false;
-	return cache[n] = true;
+    if(n in cache){
+        return cache[n];
+    }
+    if (isNaN(n) || !isFinite(n) || n % 1 || n < 2) {
+        return cache[n] = false;
+    }
+
+    var m = Math.sqrt(n);
+
+    for (var i = 2; i <= m; i++) {
+        if (n % i === 0) {
+            return cache[n] = false;
+        }
+    }
+
+    return cache[n] = true;
 }
 						</code></pre>
 					</section>
@@ -181,7 +212,7 @@ function onMouseMove(event){
 				</section>
 
 				<section>
-					<h2>Flame Charts</h2>
+					<h2>Flame Graphs</h2>
 					<p>
 						<img src="images/cpu-mysql-filt.svg">
 					</p>
@@ -194,12 +225,12 @@ function onMouseMove(event){
 					</p>
 					<br>
 					<p>
-						All you need to know about Flame Charts is here <a href="http://www.brendangregg.com/flamegraphs.html">brendangregg.com/flamegraphs</a>
+						All you need to know about Flame Graphs is here <a href="http://www.brendangregg.com/flamegraphs.html">brendangregg.com/flamegraphs</a>
 					</p>
 				</section>
 
 				<section>
-					<h3>Flame graphs are a visualization of profiled software.</h3>
+					<h3>Flame Graphs are a visualization of profiled software.</h3>
 					<img src="images/small_chart.jpg" style="position: absolute; right: 0; top: 50%; width: 30%;">
 					<ul>
 						<li class="fragment" >The x-axis is sorted alphabetically (not the passage of time)</li>
@@ -213,7 +244,7 @@ function onMouseMove(event){
 				</section>
 
 				<section>
-					<h3>Prerequisites to generate  flame charts</h3>
+					<h3>Prerequisites to generate  flame Graphs</h3>
 
 					<ol>
 						<li class="fragment" >Use linux ( mac is hard, windows impossibru... )</li>
@@ -227,20 +258,7 @@ function onMouseMove(event){
 				</section>
 
 				<section>
-					<h2>Code</h2>
-					<pre><code data-trim contenteditable>
-function foo(){
-	// Totes comment
-
-	console.log('foo');
-}
-					</code></pre>
-				</section>
-
-
-
-				<section>
-					<h1>THE END</h1>
+					<h1>ACTUALY THE END</h1>
 					<br>
 					<p>
 						<small>Maurice Butler (<a href="http://twitter.com/butlermaurice">@butlermaurice</a>)</small>
